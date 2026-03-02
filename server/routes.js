@@ -16,6 +16,28 @@ if (!fs.existsSync(DOWNLOADS_DIR)) {
   fs.mkdirSync(DOWNLOADS_DIR, { recursive: true });
 }
 
+// Normalize yt-dlp errors into actionable messages for the UI.
+function toClientError(err) {
+  const msg = (err && err.message ? String(err.message) : String(err || 'Unknown error'));
+
+  // YouTube bot-check / login required (commonly happens on datacenter IPs like Render).
+  if (
+    msg.includes("Sign in to confirm you're not a bot") ||
+    msg.includes('Sign in to confirm you\u2019re not a bot') ||
+    msg.includes('confirm you\u2019re not a bot') ||
+    msg.includes('Use --cookies-from-browser') ||
+    msg.includes('Use --cookies')
+  ) {
+    return (
+      'YouTube blocked this server (bot-check). ' +
+      'On Render, provide a cookies.txt file and set YTDLP_COOKIES_FILE. ' +
+      'See DEPLOY.md → "Fixing: Sign in to confirm you’re not a bot".'
+    );
+  }
+
+  return msg;
+}
+
 // GET /api/info?url=...
 router.get('/info', async (req, res) => {
   try {
@@ -27,7 +49,7 @@ router.get('/info', async (req, res) => {
     res.json(info);
   } catch (err) {
     console.error('Error fetching video info:', err.message);
-    res.status(500).json({ error: 'Failed to fetch video info' });
+    res.status(500).json({ error: toClientError(err) || 'Failed to fetch video info' });
   }
 });
 
@@ -82,7 +104,7 @@ router.post('/download', async (req, res) => {
         ytDlpProcess.on('error', (err) => {
           console.error('yt-dlp error:', err.message);
           downloadState.status = 'error';
-          downloadState.error = err.message;
+          downloadState.error = toClientError(err);
           downloadState.listeners.forEach(cb => cb());
         });
 
@@ -103,7 +125,7 @@ router.post('/download', async (req, res) => {
       } catch (err) {
         console.error('Download error:', err.message);
         downloadState.status = 'error';
-        downloadState.error = err.message;
+        downloadState.error = toClientError(err);
         downloadState.listeners.forEach(cb => cb());
       }
     })();
@@ -112,7 +134,7 @@ router.post('/download', async (req, res) => {
 
   } catch (err) {
     console.error('Error starting download:', err.message);
-    res.status(500).json({ error: 'Failed to start download' });
+    res.status(500).json({ error: toClientError(err) || 'Failed to start download' });
   }
 });
 
