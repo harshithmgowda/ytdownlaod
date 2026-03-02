@@ -20,7 +20,10 @@ app.use('/api', apiRoutes);
 const distDir = path.join(__dirname, 'dist');
 if (fs.existsSync(distDir)) {
   app.use(express.static(distDir));
-  app.get('*', (req, res) => {
+
+  // Express 5 (path-to-regexp v6) no longer supports a bare "*" route.
+  // Use a catch-all regex instead to serve the SPA for any non-API path.
+  app.get(/^(?!\/api).*/, (req, res) => {
     res.sendFile(path.join(distDir, 'index.html'));
   });
 }
