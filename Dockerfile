@@ -1,5 +1,5 @@
 # Use Node.js LTS image
-FROM node:18-slim
+FROM node:22-slim
 
 # Install system dependencies required for yt-dlp and ffmpeg
 # python3 is needed for yt-dlp
@@ -34,4 +34,3 @@ EXPOSE 3001
 
 # Start the application
 CMD ["npm", "start"]
-

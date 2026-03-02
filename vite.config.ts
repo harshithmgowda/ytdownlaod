@@ -1,10 +1,13 @@
-import tailwindcss from '@tailwindcss/vite';
-import react from '@vitejs/plugin-react';
 import path from 'path';
 import {defineConfig, loadEnv} from 'vite';
 
-export default defineConfig(({mode}) => {
+export default defineConfig(async ({mode}) => {
   const env = loadEnv(mode, '.', '');
+
+  // Dynamic imports keep this config compatible when Vite bundles it.
+  const react = (await import('@vitejs/plugin-react')).default;
+  const tailwindcss = (await import('@tailwindcss/vite')).default;
+
   return {
     plugins: [react(), tailwindcss()],
     define: {
