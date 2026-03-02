@@ -1,6 +1,7 @@
 const express = require('express');
 const cors = require('cors');
 const path = require('path');
+const fs = require('fs');
 const apiRoutes = require('./server/routes');
 const { ensureYtDlp } = require('./server/ytdlp');
 
@@ -14,12 +15,13 @@ app.use(express.json());
 // API routes
 app.use('/api', apiRoutes);
 
-// Serve frontend in production
-if (process.env.NODE_ENV === 'production') {
-  app.use(express.static(path.join(__dirname, 'dist')));
-
+// Serve frontend if a production build exists.
+// (Some hosts don't set NODE_ENV=production, so we detect dist/ instead.)
+const distDir = path.join(__dirname, 'dist');
+if (fs.existsSync(distDir)) {
+  app.use(express.static(distDir));
   app.get('*', (req, res) => {
-    res.sendFile(path.join(__dirname, 'dist', 'index.html'));
+    res.sendFile(path.join(distDir, 'index.html'));
   });
 }
 
