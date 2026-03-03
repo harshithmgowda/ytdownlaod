@@ -23,6 +23,9 @@ function toClientError(err) {
     msg = err;
   } else if (err && err.message) {
     msg = String(err.message);
+  } else if (err instanceof Error) {
+    // Fallback for Error objects without message or non-enumerable properties
+    msg = String(err);
   } else {
     try {
       msg = JSON.stringify(err);
@@ -32,8 +35,8 @@ function toClientError(err) {
   }
 
   // Avoid useless "[object Object]" messages
-  if (msg === '{}' || msg === '[object Object]') {
-    msg = 'An unknown error occurred during download.';
+  if (!msg || msg === '{}' || msg === '[object Object]') {
+    msg = 'An unknown error occurred during download. Check server logs.';
   }
 
   // YouTube bot-check / login required (commonly happens on datacenter IPs like Render).
@@ -127,7 +130,7 @@ router.post('/download', async (req, res) => {
         });
 
         ytDlpProcess.on('error', (err) => {
-          console.error('yt-dlp error:', err.message);
+          console.error('yt-dlp child process error:', err);
           downloadState.status = 'error';
           downloadState.error = toClientError(err);
           downloadState.listeners.forEach(cb => cb());
@@ -153,7 +156,7 @@ router.post('/download', async (req, res) => {
         });
 
       } catch (err) {
-        console.error('Download error:', err.message);
+        console.error('Download execution error:', err);
         downloadState.status = 'error';
         downloadState.error = toClientError(err);
         downloadState.listeners.forEach(cb => cb());
