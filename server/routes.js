@@ -36,7 +36,16 @@ function toClientError(err) {
 
   // Avoid useless "[object Object]" messages
   if (!msg || msg === '{}' || msg === '[object Object]') {
-    msg = 'An unknown error occurred during download. Check server logs.';
+    // Attempt to extract ANY info
+    if (err && typeof err === 'object') {
+        try {
+            msg = JSON.stringify(err, null, 2);
+        } catch {
+            msg = 'Start error: ' + String(err);
+        }
+    } else {
+        msg = 'An unknown system error occurred.';
+    }
   }
 
   // YouTube bot-check / login required (commonly happens on datacenter IPs like Render).
@@ -109,6 +118,7 @@ router.post('/download', async (req, res) => {
 
         downloadState.status = 'downloading';
         let lastErrorLine = null;
+        let stderrLog = '';
 
         ytDlpProcess.on('progress', (progressData) => {
           if (progressData && progressData.percent !== undefined) {
@@ -120,12 +130,20 @@ router.post('/download', async (req, res) => {
 
         ytDlpProcess.on('ytDlpEvent', (eventType, eventData) => {
           console.log(`[yt-dlp] ${eventType}: ${eventData}`);
-          if (typeof eventData === 'string' && (
-            eventData.includes('ERROR:') ||
-            eventData.includes('Sign in') ||
-            eventData.includes('429')
-          )) {
-            lastErrorLine = eventData;
+
+          if (eventType === 'stderr' || eventType === 'error') {
+            const strData = String(eventData);
+            stderrLog += strData + '\n';
+
+            // Try to catch the most relevant error line
+            if (
+              strData.includes('ERROR:') ||
+              strData.includes('Sign in') ||
+              strData.includes('429') ||
+              strData.includes('Traceback')
+            ) {
+              lastErrorLine = strData;
+            }
           }
         });
 
@@ -148,8 +166,12 @@ router.post('/download', async (req, res) => {
             // Use captured error from logs if available
             if (lastErrorLine) {
                  downloadState.error = toClientError(lastErrorLine);
+            } else if (stderrLog.trim().length > 0) {
+                 // Fallback: use last part of stderr if no specific line matched
+                 const relevantLog = stderrLog.slice(-300); // Last 300 chars
+                 downloadState.error = `Download Failed: ${relevantLog}`;
             } else {
-                 downloadState.error = 'Download file not found (YouTube might have blocked the request)';
+                 downloadState.error = 'Download process finished but no file was created. (No error output captured)';
             }
           }
           downloadState.listeners.forEach(cb => cb());
