@@ -286,7 +286,9 @@ export default function App() {
                 exit={{ height: 0, opacity: 0 }}
                 className="bg-red-500/10 border border-red-500/20 rounded-xl p-4 text-sm text-red-400"
               >
-                <p className="font-medium">⚠️ {error}</p>
+                <p className="font-medium">
+                  ⚠️ {typeof error === 'string' ? error : 'An error occurred. Please try again.'}
+                </p>
                 <button
                   onClick={() => setError('')}
                   className="mt-2 text-xs text-red-500 hover:text-red-300 underline"

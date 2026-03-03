@@ -18,7 +18,23 @@ if (!fs.existsSync(DOWNLOADS_DIR)) {
 
 // Normalize yt-dlp errors into actionable messages for the UI.
 function toClientError(err) {
-  const msg = (err && err.message ? String(err.message) : String(err || 'Unknown error'));
+  let msg;
+  if (typeof err === 'string') {
+    msg = err;
+  } else if (err && err.message) {
+    msg = String(err.message);
+  } else {
+    try {
+      msg = JSON.stringify(err);
+    } catch {
+      msg = String(err);
+    }
+  }
+
+  // Avoid useless "[object Object]" messages
+  if (msg === '{}' || msg === '[object Object]') {
+    msg = 'An unknown error occurred during download.';
+  }
 
   // YouTube bot-check / login required (commonly happens on datacenter IPs like Render).
   if (
@@ -26,7 +42,8 @@ function toClientError(err) {
     msg.includes('Sign in to confirm you\u2019re not a bot') ||
     msg.includes('confirm you\u2019re not a bot') ||
     msg.includes('Use --cookies-from-browser') ||
-    msg.includes('Use --cookies')
+    msg.includes('Use --cookies') ||
+    msg.includes('429') // Too many requests
   ) {
     return (
       'YouTube blocked this server (bot-check). ' +
@@ -88,6 +105,7 @@ router.post('/download', async (req, res) => {
         const ytDlpProcess = yt.exec(args);
 
         downloadState.status = 'downloading';
+        let lastErrorLine = null;
 
         ytDlpProcess.on('progress', (progressData) => {
           if (progressData && progressData.percent !== undefined) {
@@ -99,6 +117,13 @@ router.post('/download', async (req, res) => {
 
         ytDlpProcess.on('ytDlpEvent', (eventType, eventData) => {
           console.log(`[yt-dlp] ${eventType}: ${eventData}`);
+          if (typeof eventData === 'string' && (
+            eventData.includes('ERROR:') ||
+            eventData.includes('Sign in') ||
+            eventData.includes('429')
+          )) {
+            lastErrorLine = eventData;
+          }
         });
 
         ytDlpProcess.on('error', (err) => {
@@ -117,7 +142,12 @@ router.post('/download', async (req, res) => {
             downloadState.progress = 100;
           } else {
             downloadState.status = 'error';
-            downloadState.error = 'Download file not found';
+            // Use captured error from logs if available
+            if (lastErrorLine) {
+                 downloadState.error = toClientError(lastErrorLine);
+            } else {
+                 downloadState.error = 'Download file not found (YouTube might have blocked the request)';
+            }
           }
           downloadState.listeners.forEach(cb => cb());
         });

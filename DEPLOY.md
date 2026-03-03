@@ -52,7 +52,7 @@ If you want more control or run into YouTube data-center blocking, a VPS can be 
 - **Disk space:** downloads are temporary but can spike usage.
 - **Timeouts / sleeping:** free tiers may sleep after inactivity.
 - **YouTube blocking:** data center IPs sometimes get bot-check pages.
-
+                     
 ## Fixing: "Sign in to confirm you’re not a bot" (yt-dlp)
 Sometimes YouTube blocks datacenter IPs (including Render/Railway) and yt-dlp will fail with a bot-check message.
 
